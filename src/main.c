@@ -9,7 +9,6 @@ void GetUserInput() {
 
     fgets(userInput, sizeof(userInput), stdin);
 
- 
     userInput[strcspn(userInput, "\n")] = 0;
 
     if (strcmp(userInput, "exit") == 0) {
@@ -38,6 +37,27 @@ void GetUserInput() {
             wait(NULL);
         }
     }
+    else if (strcmp(userInput, "mkdir") == 0) {
+        pid_t pid = fork();
+
+        if (pid < 0) {
+            perror("fork failed");
+            return;
+        }
+        else if (pid == 0) {
+            char *args[] = {"mkdir", NULL};
+
+            execvp("mkdir", args);
+
+
+            perror("execvp failed "); 
+            _exit(1);
+        }
+        else {
+            wait(NULL);
+        }  
+    }
+    
 }
 
 int main() {
@@ -46,6 +66,8 @@ int main() {
         fflush(stdout); 
         GetUserInput();
     }
+
+    // printf("%s","Hello") ;
 
     return 0;
 }
