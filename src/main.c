@@ -13,6 +13,8 @@ void reap_zombies() {
 void GetUserInput() {
     char userInput[1000] = "";
     int isBackground = 0;
+    char *input_file = NULL;   // For < redirection
+    char *output_file = NULL;  // For > redirection
 
     // Clean up any zombies first
     reap_zombies();
@@ -51,13 +53,30 @@ void GetUserInput() {
         }
     }
 
-    // Parse command into arguments
+    // Parse command into arguments and detect redirection
     char *args[100];
     int i = 0;
     char *token = strtok(userInput, " ");
     
     while (token != NULL && i < 99) {
-        args[i++] = token;
+        if (strcmp(token, ">") == 0) {
+            // Output redirection
+            token = strtok(NULL, " ");
+            if (token != NULL) {
+                output_file = token;
+            }
+        } 
+        else if (strcmp(token, "<") == 0) {
+            // Input redirection
+            token = strtok(NULL, " ");
+            if (token != NULL) {
+                input_file = token;
+            }
+        }
+        else {
+            // Regular argument
+            args[i++] = token;
+        }
         token = strtok(NULL, " ");
     }
     args[i] = NULL;
@@ -94,7 +113,31 @@ void GetUserInput() {
         return;
     } 
     else if (pid == 0) {
-        // Child process
+        // ===== CHILD PROCESS =====
+        
+        // Handle INPUT redirection (<)
+        if (input_file != NULL) {
+            int fd_in = open(input_file, O_RDONLY);
+            if (fd_in < 0) {
+                perror("open input file");
+                _exit(1);
+            }
+            dup2(fd_in, STDIN_FILENO);  // Redirect stdin to file
+            close(fd_in);                // Close original fd
+        }
+        
+        // Handle OUTPUT redirection (>)
+        if (output_file != NULL) {
+            int fd_out = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fd_out < 0) {
+                perror("open output file");
+                _exit(1);
+            }
+            dup2(fd_out, STDOUT_FILENO);  // Redirect stdout to file
+            close(fd_out);                 // Close original fd
+        }
+        
+        // Execute the command
         execvp(args[0], args);
         
         // If execvp returns, it failed
@@ -102,7 +145,7 @@ void GetUserInput() {
         _exit(1);
     } 
     else {
-        // Parent process
+        // ===== PARENT PROCESS =====
         if (isBackground == 0) {
             // Foreground: wait for specific child
             waitpid(pid, NULL, 0);
@@ -114,8 +157,16 @@ void GetUserInput() {
 }
 
 int main() {
-    printf("Simple Shell - Type 'exit' to quit\n");
-    printf("Supports: Any command, background jobs (&), cd\n\n");
+    printf("=== Simple Shell with I/O Redirection ===\n");
+    printf("Commands:\n");
+    printf("  ls                    - list files\n");
+    printf("  ls > output.txt       - save output to file\n");
+    printf("  cat < input.txt       - read from file\n");
+    printf("  cat < in.txt > out.txt - read from in.txt, write to out.txt\n");
+    printf("  echo hello > file.txt - write to file\n");
+    printf("  ls &                  - background process\n");
+    printf("  cd <directory>        - change directory\n");
+    printf("  exit                  - quit shell\n\n");
     
     while (1) {
         GetUserInput();
